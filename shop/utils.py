@@ -6,5 +6,5 @@ def get_products():
     return products
 
 def update_products(products):
-    with open("db json", "w") as file:
+    with open("db.json", "w") as file:
         json.dump(products, file)
