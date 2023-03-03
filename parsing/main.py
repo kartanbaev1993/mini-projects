@@ -1,43 +1,64 @@
+import json
 import requests
-from bs4 import BeautifulSoup
-
-main_url = 'https://www.kivano.kg/'
-
-response = requests.get(main_url) # отправляем запрос
-# print(responce.text) # html - str
-
-soup = BeautifulSoup(response.text, 'lxml')
-
-phones_span = soup.find('span', {"id":"phones"})
-# print(phones_id)
-raw_phones = phones_span.text
-phones_list = []
-
-for ph in raw_phones.split("\n"):
-    clear_phone = ph.replace('\r', '').strip()
-    # print(repr(clear_phone))
-    if clear_phone:
-        phones_list.append(clear_phone)
-print(phones_list)
+from bs4 import BeautifulSoup as BS
 
 
-"===============Detalizaciya produkta==============="
-product_url = 'product/view/sotovyy-telefon-xiaomi-mi-11-lite-5g-8-128gb-chernyy'
 
-responce = requests.get(main_url+product_url)
-soup = BeautifulSoup(responce.text, 'lxml')
+BASE_URL = 'https://www.kivano.kg'
 
-product_card = soup.find('div', {"class":"product-view"})
+def get_soup(url:str) -> BS:
+    response = requests.get(url)
+    soup = BS(response.text, 'lxml')
+    return soup
 
-title = product_card.find('h1').text
+def get_product_info(product:BS) -> dict:
+    title = product.find('div', {'class':'listbox_title'}).text.strip()
+    # print(repr(title))
+    price = product.find('div',{'class':'listbox_price'}).text.strip().split('\n')[0]
+    # print(repr(price))
+    image = product.find('div',{'class':'listbox_img'}).find('img').get('src')
+    # image = product.find('img').get('src')
+    # print(image)
+    return {'title':title, 'price':price, 'image':BASE_URL+image}
 
-# print(len(product_card.find_all('img')))
+def get_all_products_list_page(url:str) -> list:
+    res = []
+    soup = get_soup(url)
+    box = soup.find('div', {'class':'list-view'})
+    products = box.find_all('div', {'class':'product_listbox'})
+    # print(len(products))
+    for product in products:
+        product_info = get_product_info(product)
+        res.append(product_info)
+    # print(res)
+    return res
 
-image_box = product_card.find('div', {'class':'img_full'})
-image = image_box.find('img').get('src')
-# print(image_box.find('img'))
 
-price = product_card.find('span', {'itemprop':'price'}).text
+def write_to_json(data:dict):
+    with open('db.json', 'w', encoding='utf-8') as file:
+        json.dump(data, file, ensure_ascii=False)
 
-data = {'title':title, 'image':image, 'price':price}
-print(data)
+
+def get_last_page(url:str) -> int:
+    soup = get_soup(url)
+    last = soup.find('li', {'class':'last'})
+    return int(last.text)
+
+
+
+
+
+
+def main():
+    category = '/noutbuki'
+    data = {}
+    last_page = get_last_page(BASE_URL + category)
+    for page in range(1, last_page+1):
+        url = BASE_URL + category + '?page=' + str(page)
+        print(url)
+        one_page_data = get_all_products_list_page(url)
+        data[page] = one_page_data
+    write_to_json(data)
+
+
+main()
